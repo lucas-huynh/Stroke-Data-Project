@@ -1,0 +1,310 @@
+---
+title: "STAT1601 Final Project Code"
+author: "Lucas Huynh, Joseph Lee, Daniel Song"
+date: "5/4/2022"
+output: html_document
+---
+
+# Data Wrangling and Cleaning
+
+```{r}
+library(dplyr)
+stroke_data <-read.csv("C:\\Users\\lucas\\Desktop\\stroke_data.xlsx - healthcare-dataset-stroke-data.csv")
+
+#Removed id, marriage status, work type, residence. Also removed data with unknown smoking status or bmi. Finally, 
+#converted bmi data from character to double.
+stroke_data <- stroke_data%>%
+  select(-1, -(6:8))
+stroke_data1<-stroke_data[!(stroke_data$smoking_status == "Unknown"|stroke_data$bmi == "N/A"),]
+stroke_data1$bmi<- as.double(stroke_data1$bmi)
+
+#Selected data for only 65+ year olds because they're the most likely to have a stroke.Renamed values in heartdisease, hypertension, and stroke for better understanding
+new_dat<-subset(stroke_data1,age>= 65)
+new_dat<-new_dat%>%
+  mutate(heart_disease = ifelse(heart_disease==0, "No Heart Disease", "Heart Disease"))%>%
+  mutate(hypertension = ifelse(hypertension==0, "No Hypertension", "Hypertension"))%>%
+  mutate(stroke = ifelse(stroke == 0, "No Stroke", "Stroke"))
+
+#Create data set of just numeric values for analysis
+numeric_dat<-new_dat%>%
+  select(-1, -(3:4), -(7:8))
+
+#Create frequency tables
+new_dat%>%
+  group_by(heart_disease, smoking_status)%>%
+  summarize(frequency=n())
+
+new_dat%>%
+  group_by(stroke, hypertension)%>%
+  summarize(frequency=n())
+
+#Summary of numerical data
+summary(numeric_dat)
+
+#Create two-way tables
+genhd <- table(new_dat$gender, new_dat$heart_disease)
+genhd
+genht<- table(new_dat$gender, new_dat$hypertension)
+genht
+genst<- table(new_dat$gender, new_dat$stroke)
+genst
+```
+
+# Data Visualization
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(RColorBrewer)
+library(ggwordcloud)
+library(caret)
+stroke_data<-read.csv("C:\\Users\\lucas\\Desktop\\stroke_data.xlsx - healthcare-dataset-stroke-data.csv")
+stroke_data<-stroke_data%>%
+  select(-1, -(6:8))
+stroke_data1<-stroke_data[!(stroke_data$smoking_status == "Unknown"|stroke_data$bmi == "N/A"),]
+stroke_data1$bmi<- as.double(stroke_data1$bmi)
+new_dat<-subset(stroke_data1,age>= 65)
+new_dat<-new_dat%>%
+  mutate(heart_disease = ifelse(heart_disease==0, "No Heart Disease", "Heart Disease"))%>%
+  mutate(hypertension = ifelse(hypertension==0, "No Hypertension", "Hypertension"))%>%
+  mutate(stroke = ifelse(stroke == 0, "No Stroke", "Stroke"))
+```
+
+
+# Bar Graph for Gender
+
+```{r}
+ggplot(new_dat,aes(x=gender, fill=gender))+geom_bar()+labs(x="Gender",title="Patient Count by Gender for 65+ Years-Old Individuals")+scale_fill_manual(values=c("Female"="pink","Male"="blue"))+theme(plot.title = element_text(hjust = 0.5))
+```
+
+# Bar Graph for hypertension
+
+```{r}
+ggplot(new_dat,aes(x=hypertension, fill=hypertension))+geom_bar()+labs(x="Hypertension Incidence",title="Patient Count by Hypertension Incidence for 65+ Years-Old Individuals ")+scale_fill_manual(values=c("Hypertension"="red","No Hypertension"="green"))+theme(plot.title = element_text(hjust = 0.5))
+```
+
+# Bar Graph for heart disease
+
+```{r}
+ggplot(new_dat,aes(x=heart_disease, fill=heart_disease))+geom_bar()+labs(x="Heart Disease Incidence",title="Patient Count by Heart Disease Incidence for 65+ Years-Old Individuals")+scale_fill_manual(values=c("Heart Disease"="red","No Heart Disease"="green"))+theme(plot.title = element_text(hjust = 0.5))
+```
+
+# Bar Graph for stroke
+
+```{r}
+ggplot(new_dat,aes(x=stroke, fill=stroke))+geom_bar()+labs(x="Stroke Incidence",title="Patient Count by Stroke Incidence for 65+ Years-Old Individuals")+scale_fill_manual(values=c("Stroke"="red","No Stroke"="green"))+theme(plot.title = element_text(hjust = 0.5))
+```
+
+# Bar Graph for Smoking
+
+```{r}
+ggplot(new_dat,aes(x=smoking_status, fill=smoking_status))+geom_bar()+labs(x="Smoking Status",title="Patient Count by Smoking Status for 65+ Years-Old Individuals")+scale_fill_manual(values=c("smokes"="red","formerly smoked"="yellow","never smoked"="green"))+theme(plot.title = element_text(hjust = 0.5))
+```
+
+# Box Plot for Age
+
+```{r}
+boxplot(new_dat$age,main="Age Distribution for Patient Dataset",xlab="Age",horizontal=TRUE)
+```
+
+# Box Plot for Average Glucose Level
+
+```{r}
+boxplot(new_dat$avg_glucose_level,main="Average Glucose Level Distribution for Patient Dataset",xlab="Average Glucose Level",horizontal=TRUE)
+```
+
+# Box Plot for Average Glucose Level
+
+```{r}
+boxplot(new_dat$bmi,main="BMI Distribution for Patient Dataset",xlab="BMI",horizontal=TRUE)
+```
+
+# Side-by-side boxplot for stroke (categorical) and average glucose level (numeric)
+
+```{r}
+ggplot(new_dat,aes(x=stroke, y=avg_glucose_level, fill=stroke)) + geom_boxplot() + labs(x="Stroke Incidence",y="Average Glucose Level",title="Average Glucose Level Based on Previous Incidence of Stroke")+theme(plot.title = element_text(hjust = 0.5))
+```
+
+# Side-by-side boxplot for hypertension incidence (categorical) and average glucose level (numeric)
+
+```{r}
+ggplot(new_dat,aes(x=hypertension, y=avg_glucose_level, fill=hypertension)) + geom_boxplot() + labs(x="Hypertension Incidence",y="Average Glucose Level",title="Average Glucose Level Based on Previous Incidence of Hypertension")+theme(plot.title = element_text(hjust = 0.5))
+```
+
+# Scatterplot of Average Glucose Level (numeric) and BMI (numeric)
+
+```{r}
+ggplot(new_dat, aes(x=bmi,y=avg_glucose_level)) + geom_point() + stat_smooth(method = "lm", col = "#C42126", se = FALSE, size = 1) + labs(x="BMI",y="Average Glucose Level",title="Average Glucose Level Based on BMI")+theme(plot.title = element_text(hjust = 0.5))
+```
+
+# Scatterplot of Age (numeric) and Average Glucose Level (numeric)
+
+```{r}
+ggplot(new_dat, aes(x=age,y=avg_glucose_level)) + geom_point() + stat_smooth(method = "lm", col = "#C42126", se = FALSE, size = 1) + labs(x="Age",y="Average Glucose Level",title="Average Glucose Level Based on Age")+theme(plot.title = element_text(hjust = 0.5))
+```
+
+# Scatterplot of Age (numeric) and BMI (numeric)
+
+```{r}
+ggplot(new_dat, aes(x=age,y=bmi)) + geom_point() + stat_smooth(method = "lm", col = "#C42126", se = FALSE, size = 1) + labs(x="Age",y="BMI",title="BMI Based on Age")+theme(plot.title = element_text(hjust = 0.5))
+```
+
+# 3-Variable Graph (facet_wrap); age, heart_disease, and stroke
+
+```{r}
+ggplot(new_dat,aes(age,fill=heart_disease))+geom_bar()+facet_wrap(~stroke)+labs(x="Age", title="Incidence of Heart Disease and Stroke Based on Age")+theme(plot.title = element_text(hjust = 0.5))+guides(fill=guide_legend(title="Heart Disease"))
+```
+
+# Heatmap (Special Graph); age, average glucose level, and smoking status
+
+```{r}
+ggplot(new_dat,aes(x=age, y=smoking_status, fill=avg_glucose_level))+geom_tile()+scale_fill_gradient(low="red",high="green")+labs(x="Age",y="Smoking Status",title="Progression of Average Glucose Level Based on Smoking Status")+theme(plot.title = element_text(hjust = 0.5))+guides(fill=guide_legend(title="Average Glucose"))
+```
+
+# Simple Linear Regression
+
+```{r}
+model1<-train(avg_glucose_level~bmi,new_dat,method="lm")
+summary(model1)
+```
+
+Simple Linear Regression Model: Average Glucose Level = 2.5381(BMI) + 50.8111
+
+Interpretation(s):
+
+Slope --> For every additional unit of BMI, the model predicts that there is a 2.5381 (in mg/dL) increase in average glucose level.
+
+Intercept --> If BMI was set to be 0, the model predicts that there would be a baseline average glucose level of 50.8111 mg/dL.
+
+R-Squared --> Since the Multiple R-Squared value is equal to 0.05584, 5.584% of the variability in Average Glucose Level can be explained by our model. In other words, 5.584% of the variation in Average Glucose Level can be predicted from BMI.
+
+Correlation
+
+```{r}
+cor(new_dat$avg_glucose_level,new_dat$bmi)
+```
+
+There is a weak, positive, scattered correlation between average glucose level and bmi.
+
+# Values to be predicted (interpolation)
+
+Recommended BMI for older individuals according to the NIH: 25-27
+
+Predicting Average Glucose Level for an individual with a BMI of 25
+
+```{r}
+new=data.frame(bmi=25)
+predict(model1,new)
+```
+
+For an individual with a BMI of 25, the model predicts an average glucose level of 114.2626 mg/dL.
+
+Predicting Average Glucose Level for an individual with a BMI of 27
+
+```{r}
+new1=data.frame(bmi=27)
+predict(model1,new1)
+```
+
+For an individual with a BMI of 27, the model predicts an average glucose level of 119.3387 mg/dL.
+
+# Logistic Model
+
+```{r}
+logit<-train(stroke~age + bmi + avg_glucose_level,new_dat,method="glm",family="binomial",trace=FALSE)
+summary(logit)
+```
+
+```{r}
+exp(coef(logit$finalModel))
+```
+
+Interpretation(s):
+
+Holding BMI and average glucose level constant, the model predicts that for every one year increase in age, the odds of a stroke incidence increase by 7.97%.
+
+Holding age and average glucose level constant, the model predicts that for every unit increase in BMI, the odds of a stroke incidence decreases by 0.44%. 
+
+Holding age and BMI constant, the model predicts that for every 1 mg/dL increase in average glucose level, the odds of a stroke incidence increases by 0.51%. 
+
+
+# Values to be Predicted (Logistic)
+
+Age = 65 since it is the baseline age of the dataset.
+Average Glucose Level = 100 mg/dL since it is the recommended level for senior individuals.
+BMI = 26 since it is the average between 25 and 27 (recommended level as listed above).
+```{r}
+logitdata<-data.frame(age=65,avg_glucose_level=100,bmi=26)
+predict(logit,logitdata)
+```
+
+The logistic model predicts No Stroke for an individual with average levels of the relevant variables.
+
+# Data Classification
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(RColorBrewer)
+library(gapminder)
+library(ggwordcloud)
+library(ISLR)
+library(caret)
+stroke_data<-read.csv("C:\\Users\\lucas\\Desktop\\stroke_data.xlsx - healthcare-dataset-stroke-data.csv")
+stroke_data<-stroke_data%>%
+  select(-1, -(6:8))
+stroke_data1<-stroke_data[!(stroke_data$smoking_status == "Unknown"|stroke_data$bmi == "N/A"),]
+stroke_data1$bmi<- as.double(stroke_data1$bmi)
+new_dat<-subset(stroke_data1,age>= 65)
+
+new_dat<-new_dat%>%
+  mutate(heart_disease = ifelse(heart_disease==0, "No Heart Disease", "Heart Disease"))%>%
+  mutate(hypertension = ifelse(hypertension==0, "No Hypertension", "Hypertension"))%>%
+  mutate(stroke = ifelse(stroke == 0, "No Stroke", "Stroke"))
+
+```
+This will be used later for a test.
+```{r}
+new_dat1<-subset(stroke_data1,age>= 65)
+new_dat1<-new_dat1%>%
+  mutate(stroke = ifelse(stroke == 0, "No Stroke", "Stroke"))
+```
+
+
+
+The scatter plot graph for BMI and average glucose level with stroke colored in.
+
+```{r}
+ggplot(new_dat, aes(x=bmi,y=avg_glucose_level, color = stroke)) + geom_point(position="jitter") + labs(x="BMI",y="Average Glucose Level",title="Average Glucose Level Based on BMI")+theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+The accuracy graph for KNN.
+
+```{r}
+knn_model = train(stroke~bmi+avg_glucose_level, new_dat, method="knn")
+knn_model$finalModel
+ggplot(knn_model)
+```
+Creating the scatter plot with the new patient added into the graph.
+```{r}
+new_pat = data.frame(bmi=30,avg_glucose_level=215, hypertension=1, heart_disease=1, age = 80)
+ggplot(new_dat, aes(x=bmi,y=avg_glucose_level, color = stroke)) + geom_point(position="jitter") + geom_point(data=new_pat, color = "black") + labs(x="BMI",y="Average Glucose Level",title="Average Glucose Level Based on BMI") +theme(plot.title = element_text(hjust = 0.5))
+```
+Putting the patient into the KNN trained model.
+```{r}
+predict(knn_model, new_pat)
+```
+Trying to use all the patient's data to make a more accurate reading.  
+```{r}
+knn_modelall=train(stroke~age+bmi+avg_glucose_level+heart_disease+hypertension, new_dat1, method="knn")
+knn_modelall$finalModel
+```
+Putting new pat into this new model.
+```{r}
+ggplot(knn_modelall, new_pat)
+```
+
+```{r}
+predict(knn_modelall, new_pat)
+```
